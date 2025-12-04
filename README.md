@@ -1,6 +1,6 @@
 # aaa_screen
 
-A new Flutter project.
+для установки на андроид скачате app-release.apk в папке build/app/outputs/flutter-apk
 
 ## Getting Started
 
