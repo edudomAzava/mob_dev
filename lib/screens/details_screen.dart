@@ -1,8 +1,7 @@
-
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; 
+import 'package:provider/provider.dart';
 import '../models/product.dart';
-import '../models/favorite_manager.dart'; 
+import '../models/favorite_manager.dart';
 
 class DetailsScreen extends StatelessWidget {
   final Product product;
@@ -11,63 +10,52 @@ class DetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final favoriteManager = Provider.of<FavoriteManager>(context); 
-    final isFav = favoriteManager.isFavorite(product.id); 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(product.name),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Hero( 
-              tag: product.id, 
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8.0),
-                child: Image.network(
-                  product.imageUrl,
-                  fit: BoxFit.cover,
-                  height: 200, 
-                  width: double.infinity, 
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.error, size: 50);
-                  },
-                ),
+    return Consumer<FavoriteManager>( 
+      builder: (context, favoriteManager, child) {
+        bool _isFavorite = favoriteManager.isFavorite(product.id);
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(product.name),
+            automaticallyImplyLeading: true, 
+          ),
+          body: GestureDetector( 
+            onDoubleTap: () { 
+              favoriteManager.toggleFavorite(product);
+              String message = _isFavorite ? 'Удалено из избранного!' : 'Добавлено в избранное!';
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
+            },
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('ID: ${product.id}', style: TextStyle(fontSize: 16)),
+                  SizedBox(height: 8),
+                  Text('Название: ${product.name}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  Text('Цена: \$${product.price.toStringAsFixed(2)}', style: TextStyle(fontSize: 18)),
+                  SizedBox(height: 16),
+                  Text('Совет: Дважды тапните по экрану, чтобы быстро добавить/удалить из избранного.', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            Text('ID: ${product.id}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    )),
-            const SizedBox(height: 8),
-            Text(product.name,
-                style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text('\$${product.price.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.green,
-                    )),
-            const SizedBox(height: 16),
-            Text('Дополнительное описание товара...',
-                style: Theme.of(context).textTheme.bodyLarge),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          favoriteManager.toggleFavorite(product.id); 
-          String message = favoriteManager.isFavorite(product.id)
-              ? 'Добавлено в избранное!'
-              : 'Удалено из избранного!';
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(message)));
-        },
-        child: Icon(isFav ? Icons.favorite : Icons.favorite_border),
-        backgroundColor: isFav ? Colors.red : null,
-      ),
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              favoriteManager.toggleFavorite(product);
+              String message = favoriteManager.isFavorite(product.id) ? 'Добавлено в избранное!' : 'Удалено из избранного!';
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
+            },
+            child: Icon(favoriteManager.isFavorite(product.id) ? Icons.favorite : Icons.favorite_border),
+            backgroundColor: favoriteManager.isFavorite(product.id) ? Colors.red : null,
+          ),
+        );
+      },
     );
   }
 }

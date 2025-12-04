@@ -1,105 +1,153 @@
- 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/favorite_manager.dart'; 
-import '../models/product.dart'; 
-import 'details_screen.dart';
+import '../models/favorite_manager.dart';
 
-
-final List<Product> _allProducts = [
-  Product(
-      id: '1',
-      name: 'Товар 1',
-      price: 10.99,
-      imageUrl: ''),
-  Product(
-      id: '2',
-      name: 'Товар 2',
-      price: 15.49,
-      imageUrl: ''),
-  Product(
-      id: '3',
-      name: 'Товар 3',
-      price: 20.00,
-      imageUrl: ''),
-];
-
-class FavoriteScreen extends StatelessWidget {
+class FavoriteScreen extends StatefulWidget {
   static const routeName = '/favorite';
 
   @override
+  State<FavoriteScreen> createState() => _FavoriteScreenState();
+}
+
+class _FavoriteScreenState extends State<FavoriteScreen> {
+  DateTime? _lastSwipeTime;
+  int _swipeCount = 0;
+  static const Duration _swipeTimeout = Duration(milliseconds: 500); 
+  static const int _requiredSwipes = 2; 
+  static const double _minVelocity = 300.0; 
+
+  @override
   Widget build(BuildContext context) {
-    final favoriteManager = Provider.of<FavoriteManager>(context); 
-    final favoriteIds = favoriteManager.favorites; 
-
-
-    final favoriteProducts = _allProducts
-        .where((product) => favoriteIds.contains(product.id))
-        .toList();
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Избранное'),
+        title: Text('Избранное'),
       ),
-      body: favoriteProducts.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.favorite, size: 100, color: Colors.grey),
-                  SizedBox(height: 20),
-                  Text(
-                    'Избранных товаров нет',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder( 
-              padding: const EdgeInsets.all(8.0),
-              itemCount: favoriteProducts.length,
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          if (details.velocity.pixelsPerSecond.dx < -_minVelocity) { 
+            final now = DateTime.now();
+            if (_lastSwipeTime == null || now.difference(_lastSwipeTime!) > _swipeTimeout) {
+              _swipeCount = 1;
+            } else {
+              _swipeCount++;
+            }
+            _lastSwipeTime = now;
+
+            if (_swipeCount >= _requiredSwipes) {
+              _confirmAndClearFavorites();
+              _swipeCount = 0; 
+              _lastSwipeTime = null;
+            }
+          } else if (details.velocity.pixelsPerSecond.dx > _minVelocity) { 
+             _swipeCount = 0;
+             _lastSwipeTime = null;
+          }
+        },
+        child: Consumer<FavoriteManager>(
+          builder: (context, favoriteManager, child) {
+            final favoriteItems = favoriteManager.favoriteItems;
+
+            if (favoriteItems.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.favorite, size: 100, color: Colors.grey),
+                    SizedBox(height: 20),
+                    Text(
+                      'Ваш список избранного пуст.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                    Text(
+                      'Свайпните дважды влево, чтобы очистить (если список не пуст).',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return ListView.builder(
+              itemCount: favoriteItems.length,
               itemBuilder: (context, index) {
-                var product = favoriteProducts[index];
-                return Dismissible( // свайп для удаления
+                var product = favoriteItems[index];
+                return Dismissible( 
                   key: Key(product.id),
-                  direction: DismissDirection.endToStart,
                   onDismissed: (direction) {
-                    favoriteManager.toggleFavorite(product.id); 
+                    favoriteManager.removeFavorite(product.id);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${product.name} удалён из избранного')),
+                      SnackBar(content: Text('Товар "${product.name}" удален из избранного.')),
                     );
                   },
-                  background: Container(color: Colors.red),
-                  child: Card(
-                    child: ListTile(
-                      leading: Hero( // Hero-анимация
-                        tag: product.id,
-                        child: Image.network(
-                          product.imageUrl,
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.error);
-                          },
-                        ),
+                  background: Container(
+                    color: Colors.red,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 20.0),
+                        child: Icon(Icons.delete, color: Colors.white),
                       ),
-                      title: Text(product.name),
-                      subtitle: Text('\$${product.price.toStringAsFixed(2)}'),
-                      onTap: () {
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DetailsScreen(product: product),
-                          ),
+                    ),
+                  ),
+                  secondaryBackground: Container(
+                    color: Colors.red,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: EdgeInsets.only(right: 20.0),
+                        child: Icon(Icons.delete, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  child: ListTile(
+                    title: Text(product.name),
+                    subtitle: Text('\$${product.price.toStringAsFixed(2)}'),
+                    trailing: IconButton(
+                      icon: Icon(Icons.delete, color: Colors.red),
+                      onPressed: () {
+                        favoriteManager.removeFavorite(product.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Товар "${product.name}" удален из избранного.')),
                         );
                       },
                     ),
                   ),
                 );
               },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _confirmAndClearFavorites() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Очистить избранное?'),
+          content: Text('Вы уверены, что хотите удалить все товары из избранного?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(), 
+              child: Text('Отмена'),
             ),
+            TextButton(
+              onPressed: () {
+                context.read<FavoriteManager>().clearAllFavorites(); 
+                Navigator.of(context).pop(); 
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Список избранного очищен.')),
+                );
+              },
+              child: Text('Очистить', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 }
